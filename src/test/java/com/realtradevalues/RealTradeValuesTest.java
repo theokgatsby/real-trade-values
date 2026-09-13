@@ -11,6 +11,7 @@ import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetType;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.util.QuantityFormatter;
@@ -218,6 +219,53 @@ public class RealTradeValuesTest
 
 		verify(youWillGive).setText("You are about to give:<br>(<col=ffffff>10,000,000,000</col>)");
 		verify(youWillReceive).setText("In return you will receive:<br>(<col=ffffff>10,000,000,000</col>)");
+	}
+
+	@Test
+	public void testPriceCheckerValuesWithEmptySlotsAndStacks()
+	{
+		Widget total = mock(Widget.class);
+		Widget items = mock(Widget.class);
+		Widget pickaxeLabel = mock(Widget.class);
+		Widget coinsLabel = mock(Widget.class);
+		when(client.getWidget(InterfaceID.GePricechecker.OUTPUT)).thenReturn(total);
+		when(client.getWidget(InterfaceID.GePricechecker.ITEMS)).thenReturn(items);
+		when(items.getDynamicChildren()).thenReturn(new Widget[]{null, mock(Widget.class), pickaxeLabel, coinsLabel});
+		when(pickaxeLabel.getType()).thenReturn(WidgetType.TEXT);
+		when(coinsLabel.getType()).thenReturn(WidgetType.TEXT);
+
+		ItemContainer container = mock(ItemContainer.class);
+		when(client.getItemContainer(net.runelite.api.gameval.InventoryID.TRADEOFFER)).thenReturn(container);
+		when(container.getItems()).thenReturn(new Item[]{
+			new Item(-1, 0), new Item(ItemID._3A_PICKAXE, 2), null, new Item(ItemID.COINS, 100)
+		});
+
+		plugin.updateTradeWidgets();
+
+		verify(total).setText("20,000,000,100");
+		verify(pickaxeLabel).setText("2 x 10,000,000,000<br>= 20,000,000,000");
+		verify(coinsLabel).setText("100 x 1<br>= 100");
+
+		when(config.thirdAgePickaxe()).thenReturn(3.5);
+		plugin.updateTradeWidgets();
+		verify(total).setText("7,000,000,100");
+		verify(pickaxeLabel).setText("2 x 3,500,000,000<br>= 7,000,000,000");
+	}
+
+	@Test
+	public void testPriceCheckerClearsTotalWhenEmptied()
+	{
+		Widget total = mock(Widget.class);
+		when(client.getWidget(InterfaceID.GePricechecker.OUTPUT)).thenReturn(total);
+		ItemContainer container = mock(ItemContainer.class);
+		when(client.getItemContainer(net.runelite.api.gameval.InventoryID.TRADEOFFER)).thenReturn(container);
+		when(container.getItems()).thenReturn(new Item[]{new Item(ItemID._3A_PICKAXE, 1)});
+		plugin.updateTradeWidgets();
+		verify(total).setText("10,000,000,000");
+
+		when(container.getItems()).thenReturn(new Item[0]);
+		plugin.updateTradeWidgets();
+		verify(total).setText("0");
 	}
 
 	@Test

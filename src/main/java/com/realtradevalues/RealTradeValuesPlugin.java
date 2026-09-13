@@ -26,7 +26,7 @@ import net.runelite.client.util.QuantityFormatter;
 @PluginDescriptor(
 	name = "Real Trade Values",
 	description = "Shows actual trade values when exceeding the 2.1B integer limit and allows custom 3rd age item values",
-	tags = {"trade", "value", "prices", "lots", "3rd age"}
+	tags = {"trade", "value", "prices", "lots"}
 )
 public class RealTradeValuesPlugin extends Plugin
 {
