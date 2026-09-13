@@ -11,8 +11,10 @@ import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetType;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -79,7 +81,7 @@ public class RealTradeValuesPlugin extends Plugin
 	public void onWidgetLoaded(WidgetLoaded event)
 	{
 		int groupId = event.getGroupId();
-		if (groupId == InterfaceID.TRADEMAIN || groupId == InterfaceID.TRADECONFIRM)
+		if (groupId == InterfaceID.TRADEMAIN || groupId == InterfaceID.TRADECONFIRM || groupId == InterfaceID.GE_PRICECHECKER)
 		{
 			updateTradeWidgets();
 		}
@@ -102,12 +104,14 @@ public class RealTradeValuesPlugin extends Plugin
 	{
 		if (RealTradeValuesConfig.CONFIG_GROUP.equals(event.getGroup()))
 		{
-			updateTradeWidgets();
+			clientThread.invokeLater(this::updateTradeWidgets);
 		}
 	}
 
 	public void updateTradeWidgets()
 	{
+		updatePriceChecker();
+
 		Widget yourOfferHeader = client.getWidget(InterfaceID.Trademain.YOUR_OFFER_HEADER);
 		Widget otherOfferHeader = client.getWidget(InterfaceID.Trademain.OTHER_OFFER_HEADER);
 		Widget youWillGive = client.getWidget(InterfaceID.Tradeconfirm.YOU_WILL_GIVE);
@@ -145,6 +149,60 @@ public class RealTradeValuesPlugin extends Plugin
 			ItemContainer otherContainer = client.getItemContainer(TRADE_OTHER_CONTAINER_ID);
 			long otherValue = calculateTradeValue(otherContainer);
 			updateWidgetText(youWillReceive, "In return you will receive:", hasItems(otherContainer), otherValue);
+		}
+	}
+
+	private void updatePriceChecker()
+	{
+		Widget total = client.getWidget(InterfaceID.GePricechecker.OUTPUT);
+		if (total == null || total.isHidden())
+		{
+			return;
+		}
+
+		ItemContainer container = client.getItemContainer(InventoryID.TRADEOFFER);
+		String totalText = QuantityFormatter.formatNumber(calculateTradeValue(container));
+		if (!totalText.equals(total.getText()))
+		{
+			total.setText(totalText);
+		}
+
+		Widget items = client.getWidget(InterfaceID.GePricechecker.ITEMS);
+		if (container == null || items == null || items.getDynamicChildren() == null)
+		{
+			return;
+		}
+
+		Item[] contents = container.getItems();
+		int slot = 0;
+		// The checker creates text labels in container order, omitting empty slots.
+		for (Widget label : items.getDynamicChildren())
+		{
+			if (label == null || label.getType() != WidgetType.TEXT)
+			{
+				continue;
+			}
+			while (slot < contents.length && (contents[slot] == null || contents[slot].getId() <= 0 || contents[slot].getQuantity() <= 0))
+			{
+				slot++;
+			}
+			if (slot == contents.length)
+			{
+				break;
+			}
+
+			Item item = contents[slot++];
+			long price = getItemPrice(item.getId());
+			String text = QuantityFormatter.formatNumber(price);
+			if (item.getQuantity() > 1)
+			{
+				text = QuantityFormatter.formatNumber(item.getQuantity()) + " x " + text
+					+ "<br>= " + QuantityFormatter.formatNumber(item.getQuantity() * price);
+			}
+			if (!text.equals(label.getText()))
+			{
+				label.setText(text);
+			}
 		}
 	}
 
